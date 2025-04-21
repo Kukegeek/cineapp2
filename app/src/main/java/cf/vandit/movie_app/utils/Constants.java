@@ -1,8 +1,23 @@
 package cf.vandit.movie_app.utils;
 
 public class Constants {
-    public static final String API_KEY = "e904cd25f93143f938021b6f300ca5f6";
-    public static final String YOUTUBE_API_KEY = "AIzaSyDvIMRSVE0nl4pCDCj-JdBkuY8kG86AEqA";
+    private static final Properties PROPS = new Properties();
+
+    static {
+        // Carga el fichero api.properties y se controla excepción
+        try (InputStream in = 
+                 Constants.class.getClassLoader().getResourceAsStream("api.properties")) {
+            if (in == null) {
+                throw new IllegalStateException("No se encontró api.properties en el classpath");
+            }
+            PROPS.load(in);
+        } catch (IOException e) {
+            throw new ExceptionInInitializerError("Error cargando api.properties: " + e.getMessage());
+        }
+    }
+    
+    public static final String API_KEY = PROPS.getProperty("api.key") // se sustiye la key por el valor alojado en el archivo
+    public static final String YOUTUBE_API_KEY = PROPS.getProperty("yt.key"); // se sustiye la key por el valor alojado en el archivo
     public static final String BASE_URL = "https://api.themoviedb.org/3/";
     public static final String MOVIE_STREAM_URL = "https://gomo.to/movie/";
     public static final String SERIES_STREAM_URL = "https://gomo.to/show/";
