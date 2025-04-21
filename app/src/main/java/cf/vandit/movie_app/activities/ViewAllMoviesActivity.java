@@ -11,6 +11,7 @@ import android.view.MenuItem;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects; 
 
 import cf.vandit.movie_app.R;
 import cf.vandit.movie_app.adapters.MovieBriefSmallAdapter;
@@ -172,7 +173,7 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
                             return;
                         }
 
-                        if (response.body() == null) return;
+//                      if (response.body() == null) return;
                         if (response.body().getResults() == null) return;
 
                         for (MovieBrief movieBrief : response.body().getResults()) {
@@ -180,7 +181,7 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
                                 mMovies.add(movieBrief);
                         }
                         mMoviesAdapter.notifyDataSetChanged();
-                        if (response.body().getPage() == response.body().getTotalPages())
+                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages()))))
                             pagesOver = true;
                         else
                             presentPage++;
@@ -203,7 +204,7 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
                             return;
                         }
 
-                        if (response.body() == null) return;
+//                      if (response.body() == null) return;
                         if (response.body().getResults() == null) return;
 
                         for (MovieBrief movieBrief : response.body().getResults()) {
