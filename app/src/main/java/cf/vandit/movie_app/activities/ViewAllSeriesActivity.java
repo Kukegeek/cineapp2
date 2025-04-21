@@ -3,6 +3,7 @@ package cf.vandit.movie_app.activities;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.util.SparseArray;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
@@ -11,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects; 
+import java.util.Objects;
 
 import cf.vandit.movie_app.R;
 import cf.vandit.movie_app.adapters.SeriesBriefSmallAdapter;
@@ -33,167 +34,150 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
     private SeriesBriefSmallAdapter mSeriesAdapter;
 
     private int mSeriesType;
-
     private boolean pagesOver = false;
     private int presentPage = 1;
     private boolean loading = true;
     private int previousTotal = 0;
     private int visibleThreshold = 5;
 
-    private Call<OnTheAirSeriesResponse> mOnAirSeriesCall;
-    private Call<PopularSeriesResponse> mPopularSeriesCall;
-    private Call<TopRatedSeriesResponse> mTopRatedSeriesCall;
+    // Mapeo de constantes a títulos
+    private static final SparseArray<String> TYPE_TITLES = new SparseArray<>();
+    static {
+        TYPE_TITLES.put(Constants.ON_THE_AIR_TV_SHOWS_TYPE, "On The Air Series");
+        TYPE_TITLES.put(Constants.POPULAR_TV_SHOWS_TYPE, "Popular Series");
+        TYPE_TITLES.put(Constants.TOP_RATED_TV_SHOWS_TYPE, "Top Rated Series");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_view_all_series);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.view_series_toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-
-        Intent receivedIntent = getIntent();
-        mSeriesType = receivedIntent.getIntExtra(Constants.VIEW_ALL_TV_SHOWS_TYPE, -1);
-
-        if (mSeriesType == -1) finish();
-
-        switch (mSeriesType) {
-            case Constants.ON_THE_AIR_TV_SHOWS_TYPE:
-                setTitle("On The Air Series");
-                break;
-            case Constants.POPULAR_TV_SHOWS_TYPE:
-                setTitle("Popular Series");
-                break;
-            case Constants.TOP_RATED_TV_SHOWS_TYPE:
-                setTitle("Top Rated Series");
-                break;
+        mSeriesType = getIntent().getIntExtra(Constants.VIEW_ALL_TV_SHOWS_TYPE, -1);
+        if (mSeriesType == -1) {
+            finish();
+            return;
         }
 
+        setupToolbar();
+        setupRecyclerView();
+        loadSeries();
+    }
+
+    private void setupToolbar() {
+        Toolbar toolbar = findViewById(R.id.view_series_toolbar);
+        setSupportActionBar(toolbar);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
+        String title = TYPE_TITLES.get(mSeriesType);
+        if (title != null) setTitle(title);
+    }
+
+    private void setupRecyclerView() {
         mRecyclerView = findViewById(R.id.view_series_recView);
         mSeries = new ArrayList<>();
-        mSeriesAdapter = new SeriesBriefSmallAdapter(mSeries, ViewAllSeriesActivity.this);
+        mSeriesAdapter = new SeriesBriefSmallAdapter(mSeries, this);
         mRecyclerView.setAdapter(mSeriesAdapter);
-        final GridLayoutManager gridLayoutManager = new GridLayoutManager(ViewAllSeriesActivity.this, 3);
-        mRecyclerView.setLayoutManager(gridLayoutManager);
 
+        final GridLayoutManager layoutManager = new GridLayoutManager(this, 3);
+        mRecyclerView.setLayoutManager(layoutManager);
         mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
-            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+            public void onScrolled(RecyclerView rv, int dx, int dy) {
+                int visibleCount = layoutManager.getChildCount();
+                int totalCount = layoutManager.getItemCount();
+                int firstVisible = layoutManager.findFirstVisibleItemPosition();
 
-                int visibleItemCount = gridLayoutManager.getChildCount();
-                int totalItemCount = gridLayoutManager.getItemCount();
-                int firstVisibleItem = gridLayoutManager.findFirstVisibleItemPosition();
-
-                if (loading) {
-                    if (totalItemCount > previousTotal) {
-                        loading = false;
-                        previousTotal = totalItemCount;
-                    }
+                if (loading && totalCount > previousTotal) {
+                    loading = false;
+                    previousTotal = totalCount;
                 }
-                if (!loading && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
-                    loadSeries(mSeriesType);
+                if (!loading && (totalCount - visibleCount) <= (firstVisible + visibleThreshold)) {
+                    loadSeries();
                     loading = true;
                 }
             }
         });
-
-        loadSeries(mSeriesType);
     }
 
-    private void loadSeries(int seriesType){
-        ApiInterface apiInterface = ApiClient.getMovieApi();
+    private void loadSeries() {
+        if (pagesOver) return;
 
-        switch (seriesType){
+        ApiInterface api = ApiClient.getMovieApi();
+
+        switch (mSeriesType) {
             case Constants.ON_THE_AIR_TV_SHOWS_TYPE:
-                mOnAirSeriesCall = apiInterface.getOnTheAirSeries(Constants.API_KEY, presentPage);
-                mOnAirSeriesCall.enqueue(new Callback<OnTheAirSeriesResponse>() {
-                    @Override
-                    public void onResponse(Call<OnTheAirSeriesResponse> call, Response<OnTheAirSeriesResponse> response) {
-                        if (!response.isSuccessful()) {
-                            mOnAirSeriesCall = call.clone();
-                            mOnAirSeriesCall.enqueue(this);
-                            return;
+                enqueueCall(
+                    api.getOnTheAirSeries(Constants.API_KEY, presentPage),
+                    new ResponseHandler<OnTheAirSeriesResponse>() {
+                        @Override
+                        public void onSuccess(OnTheAirSeriesResponse body) {
+                            processResults(body.getResults(), body.getPage(), body.getTotalPages());
                         }
-
-
-                        if (response.body().getResults() == null) return;
-
-                        for (SeriesBrief seriesBrief : response.body().getResults()) {
-                            if (seriesBrief != null && seriesBrief.getName() != null && seriesBrief.getPosterPath() != null)
-                                mSeries.add(seriesBrief);
-                        }
-                        mSeriesAdapter.notifyDataSetChanged();
-                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())) // se sustituye == por el metodo equals() de Objects
-                            pagesOver = true;
-                        else
-                            presentPage++;
                     }
-
-                    @Override
-                    public void onFailure(Call<OnTheAirSeriesResponse> call, Throwable t) {}
-                });
+                );
                 break;
 
             case Constants.POPULAR_TV_SHOWS_TYPE:
-                mPopularSeriesCall = apiInterface.getPopularSeries(Constants.API_KEY, presentPage);
-                mPopularSeriesCall.enqueue(new Callback<PopularSeriesResponse>() {
-                    @Override
-                    public void onResponse(Call<PopularSeriesResponse> call, Response<PopularSeriesResponse> response) {
-                        if (!response.isSuccessful()) {
-                            mPopularSeriesCall = call.clone();
-                            mPopularSeriesCall.enqueue(this);
-                            return;
+                enqueueCall(
+                    api.getPopularSeries(Constants.API_KEY, presentPage),
+                    new ResponseHandler<PopularSeriesResponse>() {
+                        @Override
+                        public void onSuccess(PopularSeriesResponse body) {
+                            processResults(body.getResults(), body.getPage(), body.getTotalPages());
                         }
-
-
-                        if (response.body().getResults() == null) return;
-
-                        for (SeriesBrief seriesBrief : response.body().getResults()) {
-                            if (seriesBrief != null && seriesBrief.getName() != null && seriesBrief.getPosterPath() != null)
-                                mSeries.add(seriesBrief);
-                        }
-                        mSeriesAdapter.notifyDataSetChanged();
-                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())) // se sustituye == por el metodo equals() de Objects
-                            pagesOver = true;
-                        else
-                            presentPage++;
                     }
-
-                    @Override
-                    public void onFailure(Call<PopularSeriesResponse> call, Throwable t) {}
-                });
+                );
                 break;
 
-            case Constants.TOP_RATED_MOVIES_TYPE:
-                mTopRatedSeriesCall = apiInterface.getTopRatedSeries(Constants.API_KEY, presentPage);
-                mTopRatedSeriesCall.enqueue(new Callback<TopRatedSeriesResponse>() {
-                    @Override
-                    public void onResponse(Call<TopRatedSeriesResponse> call, Response<TopRatedSeriesResponse> response) {
-                        if (!response.isSuccessful()) {
-                            mTopRatedSeriesCall = call.clone();
-                            mTopRatedSeriesCall.enqueue(this);
-                            return;
+            case Constants.TOP_RATED_TV_SHOWS_TYPE:
+                enqueueCall(
+                    api.getTopRatedSeries(Constants.API_KEY, presentPage),
+                    new ResponseHandler<TopRatedSeriesResponse>() {
+                        @Override
+                        public void onSuccess(TopRatedSeriesResponse body) {
+                            processResults(body.getResults(), body.getPage(), body.getTotalPages());
                         }
-
-
-                        if (response.body().getResults() == null) return;
-
-                        for (SeriesBrief seriesBrief : response.body().getResults()) {
-                            if (seriesBrief != null && seriesBrief.getName() != null && seriesBrief.getPosterPath() != null)
-                                mSeries.add(seriesBrief);
-                        }
-                        mSeriesAdapter.notifyDataSetChanged();
-                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())) // se sustituye == por el metodo equals() de Objects
-                            pagesOver = true;
-                        else
-                            presentPage++;
                     }
-
-                    @Override
-                    public void onFailure(Call<TopRatedSeriesResponse> call, Throwable t) {}
-                });
+                );
                 break;
+        }
+    }
+
+    private <T> void enqueueCall(Call<T> call, ResponseHandler<T> handler) {
+        call.enqueue(new Callback<T>() {
+            @Override
+            public void onResponse(Call<T> c, Response<T> response) {
+                if (!response.isSuccessful()) {
+                    c.clone().enqueue(this);
+                    return;
+                }
+                if (response.body() != null) {
+                    handler.onSuccess(response.body());
+                }
+            }
+            @Override
+            public void onFailure(Call<T> c, Throwable t) {
+                // manejo de fallo si es necesario
+            }
+        });
+    }
+
+    private void processResults(List<SeriesBrief> results, int page, int totalPages) {
+        if (results == null) return;
+        for (SeriesBrief s : results) {
+            if (s != null && s.getName() != null && s.getPosterPath() != null) {
+                mSeries.add(s);
+            }
+        }
+        mSeriesAdapter.notifyDataSetChanged();
+        updatePagination(page, totalPages);
+    }
+
+    private void updatePagination(int page, int totalPages) {
+        if (Objects.equals(page, totalPages)) {
+            pagesOver = true;
+        } else {
+            presentPage++;
         }
     }
 
@@ -201,7 +185,12 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
             onBackPressed();
+            return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private interface ResponseHandler<T> {
+        void onSuccess(T body);
     }
 }
