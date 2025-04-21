@@ -1,17 +1,18 @@
 package cf.vandit.movie_app.activities;
 
+import android.content.Intent;
+import android.os.Bundle;
+import android.view.MenuItem;
+import android.util.SparseArray;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import android.content.Intent;
-import android.os.Bundle;
-import android.view.MenuItem;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects; 
+import java.util.Objects;
 
 import cf.vandit.movie_app.R;
 import cf.vandit.movie_app.adapters.MovieBriefSmallAdapter;
@@ -22,7 +23,6 @@ import cf.vandit.movie_app.network.movie.TopRatedMoviesResponse;
 import cf.vandit.movie_app.request.ApiClient;
 import cf.vandit.movie_app.request.ApiInterface;
 import cf.vandit.movie_app.utils.Constants;
-import cf.vandit.movie_app.utils.NestedRecViewModel;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -34,226 +34,214 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
     private MovieBriefSmallAdapter mMoviesAdapter;
 
     private int mMovieType;
-
     private boolean pagesOver = false;
     private int presentPage = 1;
     private boolean loading = true;
     private int previousTotal = 0;
     private int visibleThreshold = 5;
 
-    private Call<PopularMoviesResponse> mPopularMoviesCall;
-    private Call<TopRatedMoviesResponse> mTopRatedMoviesCall;
-    Call<GenreMoviesResponse> mGenreMoviesResponseCall;
+    // Mapeo tipo → título para evitar el switch repetido
+    private static final SparseArray<String> TYPE_TITLES = new SparseArray<>();
+    static {
+        TYPE_TITLES.put(Constants.POPULAR_MOVIES_TYPE,      "Popular Movies");
+        TYPE_TITLES.put(Constants.TOP_RATED_MOVIES_TYPE,    "Top Rated Movies");
+        TYPE_TITLES.put(Constants.ACTION_MOVIES_TYPE,       "Action Movies");
+        TYPE_TITLES.put(Constants.ADVENTURE_MOVIES_TYPE,    "Adventure Movies");
+        TYPE_TITLES.put(Constants.ANIMATION_MOVIES_TYPE,    "Animation Movies");
+        TYPE_TITLES.put(Constants.COMEDY_MOVIES_TYPE,       "Comedy Movies");
+        TYPE_TITLES.put(Constants.CRIME_MOVIES_TYPE,        "Crime Movies");
+        TYPE_TITLES.put(Constants.DOCUMENTARY_MOVIES_TYPE,  "Documentary Movies");
+        TYPE_TITLES.put(Constants.DRAMA_MOVIES_TYPE,        "Drama Movies");
+        TYPE_TITLES.put(Constants.FAMILY_MOVIES_TYPE,       "Family Movies");
+        TYPE_TITLES.put(Constants.FANTASY_MOVIES_TYPE,      "Fantasy Movies");
+        TYPE_TITLES.put(Constants.HISTORY_MOVIES_TYPE,      "History Movies");
+        TYPE_TITLES.put(Constants.HORROR_MOVIES_TYPE,       "Horror Movies");
+        TYPE_TITLES.put(Constants.MUSIC_MOVIES_TYPE,        "Music Movies");
+        TYPE_TITLES.put(Constants.MYSTERY_MOVIES_TYPE,      "Mystery Movies");
+        TYPE_TITLES.put(Constants.ROMANCE_MOVIES_TYPE,      "Romance Movies");
+        TYPE_TITLES.put(Constants.SCIFI_MOVIES_TYPE,        "Sci‑Fi Movies");
+        TYPE_TITLES.put(Constants.TV_MOVIES_TYPE,           "TV Movies");
+        TYPE_TITLES.put(Constants.THRILLER_MOVIES_TYPE,     "Thriller Movies");
+        TYPE_TITLES.put(Constants.WAR_MOVIES_TYPE,          "War Movies");
+        TYPE_TITLES.put(Constants.WESTERN_MOVIES_TYPE,      "Western Movies");
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_view_all_movies);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.view_movies_toolbar);
-        setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-
-        Intent receivedIntent = getIntent();
-        mMovieType = receivedIntent.getIntExtra(Constants.VIEW_ALL_MOVIES_TYPE, -1);
-
-        if (mMovieType == -1) finish();
-
-        switch (mMovieType) {
-            case Constants.POPULAR_MOVIES_TYPE:
-                setTitle("Popular Movies");
-                break;
-            case Constants.TOP_RATED_MOVIES_TYPE:
-                setTitle("Top Rated Movies");
-                break;
-            case Constants.ACTION_MOVIES_TYPE:
-                setTitle("Action Movies");
-                break;
-            case Constants.ADVENTURE_MOVIES_TYPE:
-                setTitle("Adventure Movies");
-                break;
-            case Constants.ANIMATION_MOVIES_TYPE:
-                setTitle("Animation Movies");
-                break;
-            case Constants.COMEDY_MOVIES_TYPE:
-                setTitle("Comedy Movies");
-                break;
-            case Constants.CRIME_MOVIES_TYPE:
-                setTitle("Crime Movies");
-                break;
-            case Constants.DOCUMENTARY_MOVIES_TYPE:
-                setTitle("Documentary Movies");
-                break;
-            case Constants.DRAMA_MOVIES_TYPE:
-                setTitle("Drama Movies");
-                break;
-            case Constants.FAMILY_MOVIES_TYPE:
-                setTitle("Family Movies");
-                break;
-            case Constants.FANTASY_MOVIES_TYPE:
-                setTitle("Fantasy Movies");
-                break;
-            case Constants.HISTORY_MOVIES_TYPE:
-                setTitle("History Movies");
-                break;
-            case Constants.HORROR_MOVIES_TYPE:
-                setTitle("Horror Movies");
-                break;
-            case Constants.MUSIC_MOVIES_TYPE:
-                setTitle("Music Movies");
-                break;
-            case Constants.MYSTERY_MOVIES_TYPE:
-                setTitle("Mystery Movies");
-                break;
-            case Constants.ROMANCE_MOVIES_TYPE:
-                setTitle("Romance Movies");
-                break;
-            case Constants.SCIFI_MOVIES_TYPE:
-                setTitle("Sci-Fi Movies");
-                break;
-            case Constants.TV_MOVIES_TYPE:
-                setTitle("TV Movies");
-                break;
-            case Constants.THRILLER_MOVIES_TYPE:
-                setTitle("Thriller Movies");
-                break;
-            case Constants.WAR_MOVIES_TYPE:
-                setTitle("War Movies");
-                break;
-            case Constants.WESTERN_MOVIES_TYPE:
-                setTitle("Western Movies");
-                break;
+        // Recogemos el tipo y, si es inválido, salimos
+        mMovieType = getIntent().getIntExtra(Constants.VIEW_ALL_MOVIES_TYPE, -1);
+        if (mMovieType == -1) {
+            finish();
+            return;
         }
 
-        mRecyclerView = (RecyclerView) findViewById(R.id.view_movies_recView);
-        mMovies = new ArrayList<>();
-        mMoviesAdapter = new MovieBriefSmallAdapter(mMovies, ViewAllMoviesActivity.this);
+        setupToolbar();
+        setupRecyclerView();
+        loadMovies();
+    }
+
+    private void setupToolbar() {
+        Toolbar toolbar = findViewById(R.id.view_movies_toolbar);
+        setSupportActionBar(toolbar);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
+        String title = TYPE_TITLES.get(mMovieType);
+        if (title != null) setTitle(title);
+    }
+
+    private void setupRecyclerView() {
+        mRecyclerView = findViewById(R.id.view_movies_recView);
+        mMovies      = new ArrayList<>();
+        mMoviesAdapter = new MovieBriefSmallAdapter(mMovies, this);
+
+        final GridLayoutManager layoutManager = new GridLayoutManager(this, 3);
+        mRecyclerView.setLayoutManager(layoutManager);
         mRecyclerView.setAdapter(mMoviesAdapter);
-        final GridLayoutManager gridLayoutManager = new GridLayoutManager(ViewAllMoviesActivity.this, 3);
-        mRecyclerView.setLayoutManager(gridLayoutManager);
 
         mRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
-            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+            public void onScrolled(RecyclerView rv, int dx, int dy) {
+                int visibleCount = layoutManager.getChildCount();
+                int totalCount   = layoutManager.getItemCount();
+                int firstVisible = layoutManager.findFirstVisibleItemPosition();
 
-                int visibleItemCount = gridLayoutManager.getChildCount();
-                int totalItemCount = gridLayoutManager.getItemCount();
-                int firstVisibleItem = gridLayoutManager.findFirstVisibleItemPosition();
-
-                if (loading) {
-                    if (totalItemCount > previousTotal) {
-                        loading = false;
-                        previousTotal = totalItemCount;
-                    }
+                if (loading && totalCount > previousTotal) {
+                    loading = false;
+                    previousTotal = totalCount;
                 }
-                if (!loading && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
-                    loadMovies(mMovieType);
+                if (!loading && (totalCount - visibleCount) <= (firstVisible + visibleThreshold)) {
+                    loadMovies();
                     loading = true;
                 }
             }
         });
-
-        loadMovies(mMovieType);
     }
 
-    private void loadMovies(int movieType) {
+    private void loadMovies() {
         if (pagesOver) return;
 
-        ApiInterface apiService = ApiClient.getMovieApi();
+        ApiInterface api = ApiClient.getMovieApi();
 
-        switch (movieType) {
+        switch (mMovieType) {
             case Constants.POPULAR_MOVIES_TYPE:
-                mPopularMoviesCall = apiService.getPopularMovies(Constants.API_KEY, presentPage);
-                mPopularMoviesCall.enqueue(new Callback<PopularMoviesResponse>() {
-                    @Override
-                    public void onResponse(Call<PopularMoviesResponse> call, Response<PopularMoviesResponse> response) {
-                        if (!response.isSuccessful()) {
-                            mPopularMoviesCall = call.clone();
-                            mPopularMoviesCall.enqueue(this);
-                            return;
+                enqueueMovieCall(
+                    api.getPopularMovies(Constants.API_KEY, presentPage),
+                    new ResponseHandler<PopularMoviesResponse>() {
+                        @Override
+                        public void onSuccess(PopularMoviesResponse body) {
+                            processGenericResults(
+                                body.getResults(),
+                                body.getPage(),
+                                body.getTotalPages()
+                            );
                         }
-
-
-                        if (response.body().getResults() == null) return;
-
-                        for (MovieBrief movieBrief : response.body().getResults()) {
-                            if (movieBrief != null && movieBrief.getTitle() != null && movieBrief.getPosterPath() != null)
-                                mMovies.add(movieBrief);
-                        }
-                        mMoviesAdapter.notifyDataSetChanged();
-                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())))) // se cambia la comparación == con el metodo equals() de Objects
-                            pagesOver = true;
-                        else
-                            presentPage++;
                     }
-
-                    @Override
-                    public void onFailure(Call<PopularMoviesResponse> call, Throwable t) {
-
-                    }
-                });
+                );
                 break;
+
             case Constants.TOP_RATED_MOVIES_TYPE:
-                mTopRatedMoviesCall = apiService.getTopRatedMovies(Constants.API_KEY, presentPage, "US");
-                mTopRatedMoviesCall.enqueue(new Callback<TopRatedMoviesResponse>() {
-                    @Override
-                    public void onResponse(Call<TopRatedMoviesResponse> call, Response<TopRatedMoviesResponse> response) {
-                        if (!response.isSuccessful()) {
-                            mTopRatedMoviesCall = call.clone();
-                            mTopRatedMoviesCall.enqueue(this);
-                            return;
+                enqueueMovieCall(
+                    api.getTopRatedMovies(Constants.API_KEY, presentPage, "US"),
+                    new ResponseHandler<TopRatedMoviesResponse>() {
+                        @Override
+                        public void onSuccess(TopRatedMoviesResponse body) {
+                            processGenericResults(
+                                body.getResults(),
+                                body.getPage(),
+                                body.getTotalPages()
+                            );
                         }
-
-
-                        if (response.body().getResults() == null) return;
-
-                        for (MovieBrief movieBrief : response.body().getResults()) {
-                            if (movieBrief != null && movieBrief.getTitle() != null && movieBrief.getPosterPath() != null)
-                                mMovies.add(movieBrief);
-                        }
-                        mMoviesAdapter.notifyDataSetChanged();
-                        if (response.body().getPage() == response.body().getTotalPages())
-                            pagesOver = true;
-                        else
-                            presentPage++;
                     }
-
-                    @Override
-                    public void onFailure(Call<TopRatedMoviesResponse> call, Throwable t) {
-
-                    }
-                });
+                );
                 break;
 
             default:
-                mGenreMoviesResponseCall = apiService.getMoviesByGenre(Constants.API_KEY, movieType, presentPage);
-                mGenreMoviesResponseCall.enqueue(new Callback<GenreMoviesResponse>() {
-                    @Override
-                    public void onResponse(Call<GenreMoviesResponse> call, Response<GenreMoviesResponse> response) {
-                        if (!response.isSuccessful()){
-                            mGenreMoviesResponseCall = call.clone();
-                            mGenreMoviesResponseCall.enqueue(this);
-                            return;
+                enqueueMovieCall(
+                    api.getMoviesByGenre(Constants.API_KEY, mMovieType, presentPage),
+                    new ResponseHandler<GenreMoviesResponse>() {
+                        @Override
+                        public void onSuccess(GenreMoviesResponse body) {
+                            processGenreResults(
+                                body.getResults(),
+                                body.getPage(),
+                                body.getTotalPages()
+                            );
                         }
-
-                        if (response.body() == null) return;
-                        if (response.body().getResults() == null) return;
-
-                        for (MovieBrief movieBrief : response.body().getResults()){
-                            if(movieBrief != null && movieBrief.getPosterPath() != null){
-                                mMovies.add(movieBrief);
-                            }
-                        }
-                        mMoviesAdapter.notifyDataSetChanged();
-                        if (response.body().getPage().equals(response.body().getTotalPages()))
-                            pagesOver = true;
-                        else
-                            presentPage++;
                     }
+                );
+                break;
+        }
+    }
 
-                    @Override
-                    public void onFailure(Call<GenreMoviesResponse> call, Throwable t) {}
-                });
+    /**
+     * Encola la llamada, reintentando automáticamente si la respuesta
+     * no es exitosa, y delega el cuerpo a un handler genérico.
+     */
+    private <T> void enqueueMovieCall(Call<T> call, ResponseHandler<T> handler) {
+        call.enqueue(new Callback<T>() {
+            @Override
+            public void onResponse(Call<T> c, Response<T> response) {
+                if (!response.isSuccessful()) {
+                    // retry automático
+                    c.clone().enqueue(this);
+                    return;
+                }
+                if (response.body() != null) {
+                    handler.onSuccess(response.body());
+                }
+            }
+            @Override
+            public void onFailure(Call<T> c, Throwable t) {
+                // aquí podrías loguear o mostrar un error
+            }
+        });
+    }
+
+    /**
+     * Procesa los resultados de Popular y Top Rated:
+     * filtra nulos y actualiza paginación.
+     */
+    private void processGenericResults(
+        List<MovieBrief> results,
+        int page,
+        int totalPages
+    ) {
+        if (results == null) return;
+        for (MovieBrief m : results) {
+            if (m != null && m.getTitle() != null && m.getPosterPath() != null) {
+                mMovies.add(m);
+            }
+        }
+        mMoviesAdapter.notifyDataSetChanged();
+        updatePagination(page, totalPages);
+    }
+
+    /**
+     * Procesa los resultados de Género (solo comprueba posterPath).
+     */
+    private void processGenreResults(
+        List<MovieBrief> results,
+        int page,
+        int totalPages
+    ) {
+        if (results == null) return;
+        for (MovieBrief m : results) {
+            if (m != null && m.getPosterPath() != null) {
+                mMovies.add(m);
+            }
+        }
+        mMoviesAdapter.notifyDataSetChanged();
+        updatePagination(page, totalPages);
+    }
+
+    /** Actualiza los contadores de página y marca fin de páginas. */
+    private void updatePagination(int page, int totalPages) {
+        if (Objects.equals(page, totalPages)) {
+            pagesOver = true;
+        } else {
+            presentPage++;
         }
     }
 
@@ -261,7 +249,14 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == android.R.id.home) {
             onBackPressed();
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }
+
+    /** Callback genérico para manejar solo el cuerpo del Response. */
+    private interface ResponseHandler<T> {
+        void onSuccess(T body);
+    }
 }
+
