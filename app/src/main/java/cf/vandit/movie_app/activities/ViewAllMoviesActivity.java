@@ -173,7 +173,7 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
                             return;
                         }
 
-//                      if (response.body() == null) return;  // Se elimina el control de valores nulos ya que se va a utilizar el metodo equals() que lo tiene en cuenta
+
                         if (response.body().getResults() == null) return;
 
                         for (MovieBrief movieBrief : response.body().getResults()) {
@@ -204,7 +204,7 @@ public class ViewAllMoviesActivity extends AppCompatActivity {
                             return;
                         }
 
-//                      if (response.body() == null) return;
+
                         if (response.body().getResults() == null) return;
 
                         for (MovieBrief movieBrief : response.body().getResults()) {
