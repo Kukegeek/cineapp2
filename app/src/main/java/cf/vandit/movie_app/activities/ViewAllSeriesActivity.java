@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects; 
 
 import cf.vandit.movie_app.R;
 import cf.vandit.movie_app.adapters.SeriesBriefSmallAdapter;
@@ -115,7 +116,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                             return;
                         }
 
-                        if (response.body() == null) return;
+//                      if (response.body() == null) return; // se elimina el control de valores nulos ya que se añade el metodo equals() 
                         if (response.body().getResults() == null) return;
 
                         for (SeriesBrief seriesBrief : response.body().getResults()) {
@@ -123,7 +124,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                                 mSeries.add(seriesBrief);
                         }
                         mSeriesAdapter.notifyDataSetChanged();
-                        if (response.body().getPage() == response.body().getTotalPages())
+                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())) // se sustituye == por el metodo equals() de Objects
                             pagesOver = true;
                         else
                             presentPage++;
@@ -145,7 +146,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                             return;
                         }
 
-                        if (response.body() == null) return;
+//                      if (response.body() == null) return; // se elimina el control de valores nulos ya que se añade el metodo equals() 
                         if (response.body().getResults() == null) return;
 
                         for (SeriesBrief seriesBrief : response.body().getResults()) {
@@ -153,7 +154,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                                 mSeries.add(seriesBrief);
                         }
                         mSeriesAdapter.notifyDataSetChanged();
-                        if (response.body().getPage() == response.body().getTotalPages())
+                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())) // se sustituye == por el metodo equals() de Objects
                             pagesOver = true;
                         else
                             presentPage++;
@@ -175,7 +176,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                             return;
                         }
 
-                        if (response.body() == null) return;
+//                      if (response.body() == null) return; // se elimina el control de valores nulos ya que se añade el metodo equals() 
                         if (response.body().getResults() == null) return;
 
                         for (SeriesBrief seriesBrief : response.body().getResults()) {
@@ -183,7 +184,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                                 mSeries.add(seriesBrief);
                         }
                         mSeriesAdapter.notifyDataSetChanged();
-                        if (response.body().getPage() == response.body().getTotalPages())
+                        if (Objects.equals(response.body().getPage(), response.body().getTotalPages())) // se sustituye == por el metodo equals() de Objects
                             pagesOver = true;
                         else
                             presentPage++;
