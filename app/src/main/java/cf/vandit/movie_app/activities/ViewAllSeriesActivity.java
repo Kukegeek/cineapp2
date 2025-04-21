@@ -116,7 +116,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                             return;
                         }
 
-//                      if (response.body() == null) return; // se elimina el control de valores nulos ya que se añade el metodo equals() 
+
                         if (response.body().getResults() == null) return;
 
                         for (SeriesBrief seriesBrief : response.body().getResults()) {
@@ -146,7 +146,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                             return;
                         }
 
-//                      if (response.body() == null) return; // se elimina el control de valores nulos ya que se añade el metodo equals() 
+
                         if (response.body().getResults() == null) return;
 
                         for (SeriesBrief seriesBrief : response.body().getResults()) {
@@ -176,7 +176,7 @@ public class ViewAllSeriesActivity extends AppCompatActivity {
                             return;
                         }
 
-//                      if (response.body() == null) return; // se elimina el control de valores nulos ya que se añade el metodo equals() 
+
                         if (response.body().getResults() == null) return;
 
                         for (SeriesBrief seriesBrief : response.body().getResults()) {
