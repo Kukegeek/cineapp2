@@ -1,3 +1,8 @@
+KuKeGeeK: These problems have been fixed
+ 1. "Strings and Boxed types should be compared using equals()" [Java language, the String and boxed data types must be compared using the equals() method. The reason is that when Java uses ==, it compares whether both variables point to the same memory address and not whether they have the same content as would be done using equals(), so false negatives will be obtained.]
+
+2. The problem is that YouTube's API KEY is exposed in the source code via a constant, which poses a security risk since anyone with access to the code could misuse it. [An api.properties file is created to store the API keys. api.properties]
+
 # Cineapp
 
 #### A Movie / TV-Show streaming app with elegant UI
